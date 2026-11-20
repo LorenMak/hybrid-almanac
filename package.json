@@ -1,0 +1,36 @@
+{
+  "name": "hybrid-almanac",
+  "version": "1.0.0",
+  "description": "中西雙曆法個人運程與擇日系統 — Chinese Tongshu & Western Astrology Hybrid Engine",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "tsx src/index.ts",
+    "cli": "tsx src/index.ts",
+    "dashboard": "tsx src/web/server.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "tongshu",
+    "astrology",
+    "almanac",
+    "擇日",
+    "通書"
+  ],
+  "author": "Loren Mak",
+  "license": "MIT",
+  "dependencies": {
+    "astronomy-engine": "^2.1.19",
+    "express": "^5.3.0",
+    "ics": "^3.12.1",
+    "lunar-typescript": "^1.8.7",
+    "opencc-js": "^1.4.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "tsx": "^4.23.15",
+    "typescript": "^5.9.3"
+  }
+}
