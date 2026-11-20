@@ -24,6 +24,12 @@ import {
   type ProfileInput,
 } from '../utils/profileBuilder.js';
 import { SIGN_NAMES } from '../utils/astronomyCore.js';
+import { getDailyQuote, getQuotesAround } from '../services/quoteService.js';
+import {
+  DEFAULT_LOCATION,
+  fetchWeatherBrief,
+  type GeoLocation,
+} from '../services/weatherService.js';
 
 const PORT = Number(process.env.PORT ?? 3456);
 const app = express();
@@ -50,11 +56,13 @@ function resolveProfile(bodyOrQuery: {
 }
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true, profile: DEFAULT_USER_PROFILE.birthDate });
+  res.json({ ok: true, today: todayHktYmd(), profile: DEFAULT_USER_PROFILE.birthDate });
 });
 
 app.get('/api/meta', (_req, res) => {
+  const today = todayHktYmd();
   res.json({
+    today,
     westernSigns: SIGN_NAMES.map((s) => ({ id: s, label: WESTERN_SIGN_LABELS[s] })),
     chineseZodiacs: CHINESE_ZODIAC_LIST.map((z) => ({ id: z, label: z })),
     intents: (Object.keys(INTENT_LABELS) as Intent[]).map((k) => ({
@@ -62,11 +70,50 @@ app.get('/api/meta', (_req, res) => {
       label: INTENT_LABELS[k],
     })),
     defaultProfile: {
-      birthDate: DEFAULT_USER_PROFILE.birthDate,
-      westernSign: DEFAULT_USER_PROFILE.natalSunSign,
-      chineseZodiac: BRANCH_TO_ZODIAC[DEFAULT_USER_PROFILE.chineseBranch] ?? '猴',
+      /** 儀表板預設：用家當天日期（可再改）. */
+      birthDate: today,
+      westernSign: '',
+      chineseZodiac: '',
     },
+    orthodoxNote:
+      '宜忌／神煞依正統陰陽五行（生剋制化、生旺休囚）；二十八宿僅紀曆；雜煞已過濾（廣經堂通勝取向）。',
   });
+});
+
+/** 每日金句 */
+app.get('/api/quote', (req, res) => {
+  const date = String(req.query.date ?? todayHktYmd());
+  res.json({ quote: getDailyQuote(date), more: getQuotesAround(date, 3) });
+});
+
+/** 報時＋報天氣（依位置）；並附 Weather.com 等外連 */
+app.get('/api/weather', async (req, res) => {
+  try {
+    const lat = Number(req.query.lat ?? DEFAULT_LOCATION.lat);
+    const lon = Number(req.query.lon ?? DEFAULT_LOCATION.lon);
+    const label = (req.query.label as string) || DEFAULT_LOCATION.label;
+    const timezone = (req.query.timezone as string) || undefined;
+    const loc: GeoLocation = { lat, lon, label, timezone };
+    const brief = await fetchWeatherBrief(loc);
+    const quote = getDailyQuote(todayHktYmd());
+    res.json({ weather: brief, quote });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'weather error' });
+  }
+});
+
+app.post('/api/weather', async (req, res) => {
+  try {
+    const lat = Number(req.body?.lat ?? DEFAULT_LOCATION.lat);
+    const lon = Number(req.body?.lon ?? DEFAULT_LOCATION.lon);
+    const label = (req.body?.label as string) || DEFAULT_LOCATION.label;
+    const timezone = (req.body?.timezone as string) || undefined;
+    const brief = await fetchWeatherBrief({ lat, lon, label, timezone });
+    const quote = getDailyQuote(todayHktYmd());
+    res.json({ weather: brief, quote });
+  } catch (e) {
+    res.status(500).json({ error: e instanceof Error ? e.message : 'weather error' });
+  }
 });
 
 app.get('/api/suggest', (req, res) => {
@@ -356,17 +403,29 @@ function dashboardHtml(): string {
       <p class="brand tracking-[0.35em] text-sm text-[color:var(--gold-bright)] mb-3">紅金擇日 · HYBRID ALMANAC</p>
       <h1 class="text-4xl md:text-6xl font-black leading-tight gold-text">中西雙曆法<br class="md:hidden" />個人運程與擇日</h1>
       <p class="mt-4 max-w-2xl mx-auto md:mx-0 text-[color:var(--gold-bright)]/85 text-base md:text-lg">
-        輸入出生年月日、星座與生肖，以<strong class="text-[color:var(--gold)]">列表</strong>或<strong class="text-[color:var(--gold)]">日曆</strong>模式瀏覽吉日；支援考試、嫁娶、搬家、開業等多元意圖。
+        輸入出生年月日、星座與生肖，以<strong class="text-[color:var(--gold)]">列表</strong>或<strong class="text-[color:var(--gold)]">日曆</strong>模式瀏覽吉日；通勝參考廣經堂正統陰陽五行。
       </p>
       <hr class="gold-rule mt-8" />
     </header>
 
+    <section class="panel rounded-lg p-5 md:p-7 mb-8" aria-label="報時報天氣金句">
+      <div class="flex flex-wrap justify-between gap-3 items-start mb-3">
+        <h2 class="text-2xl gold-text">報時 · 報天氣 · 金句</h2>
+        <button type="button" id="locateBtn" class="btn-outline text-sm py-2 px-3">定位我的位置</button>
+      </div>
+      <p id="clockLine" class="text-lg text-[color:var(--gold-bright)] tracking-wide mb-2">—</p>
+      <p id="weatherLine" class="text-sm mb-3 opacity-90">天氣載入中…</p>
+      <blockquote id="quoteLine" class="border-l-2 border-[color:var(--gold)] pl-4 text-[color:var(--gold-bright)] italic mb-4">「…」</blockquote>
+      <div id="extLinks" class="flex flex-wrap gap-3 text-sm"></div>
+      <p class="hint mt-3 text-xs opacity-60">天氣資料來自 wttr.in；詳細預報請開啟 Weather.com。通勝宜忌依陰陽五行，二十八宿僅作紀曆參考。</p>
+    </section>
+
     <section class="panel rounded-lg p-5 md:p-7 mb-8" aria-label="個人命盤">
       <h2 class="text-2xl gold-text mb-1">個人命盤</h2>
-      <p class="text-sm text-[color:var(--gold-bright)]/70 mb-5">留空星座／生肖時，會依出生日自動推算。</p>
+      <p class="text-sm text-[color:var(--gold-bright)]/70 mb-5">預設為<strong>今天</strong>；可改成您的真實出生日。留空星座／生肖時自動推算。</p>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <label class="flex flex-col gap-1.5 text-sm">出生年月日
-          <input id="birthDate" type="date" class="field" value="2004-05-19" />
+          <input id="birthDate" type="date" class="field" />
         </label>
         <label class="flex flex-col gap-1.5 text-sm">西洋星座
           <select id="westernSign" class="field"><option value="">自動推算</option>${westernOpts}</select>
@@ -443,12 +502,82 @@ function dashboardHtml(): string {
     let viewMode = 'list';
     let lastCalendarDays = [];
     let selectedDate = null;
+    let userGeo = { lat: 22.3193, lon: 114.1694, label: 'Hong Kong', timezone: 'Asia/Hong_Kong' };
 
     const now = new Date();
-    // HKT approx for month defaults
     const hkt = new Date(now.getTime() + 8 * 3600 * 1000);
+    const todayStr = hkt.toISOString().slice(0, 10);
+    $('birthDate').value = todayStr;
     $('calYear').value = hkt.getUTCFullYear();
     $('calMonth').value = hkt.getUTCMonth() + 1;
+
+    function tickClock() {
+      try {
+        $('clockLine').textContent = new Intl.DateTimeFormat('zh-HK', {
+          timeZone: userGeo.timezone || 'Asia/Hong_Kong',
+          year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short',
+          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+        }).format(new Date()) + '（' + (userGeo.label || '本地') + '）';
+      } catch (_) {
+        $('clockLine').textContent = new Date().toLocaleString('zh-HK');
+      }
+    }
+    setInterval(tickClock, 1000);
+    tickClock();
+
+    async function loadWeatherQuote() {
+      const q = new URLSearchParams({
+        lat: String(userGeo.lat), lon: String(userGeo.lon),
+        label: userGeo.label || '', timezone: userGeo.timezone || '',
+      });
+      const res = await fetch('/api/weather?' + q.toString());
+      const data = await res.json();
+      if (data.error) {
+        $('weatherLine').textContent = data.error;
+        return;
+      }
+      const w = data.weather;
+      userGeo.timezone = w.timezone || userGeo.timezone;
+      tickClock();
+      const temp = w.tempC != null ? w.tempC + '°C' : '—';
+      $('weatherLine').textContent =
+        w.locationLabel + ' · ' + w.description + ' · ' + temp
+        + (w.humidity != null ? ' · 濕度 ' + w.humidity + '%' : '')
+        + (w.windKmph != null ? ' · 風 ' + w.windKmph + ' km/h' : '');
+      const quote = data.quote;
+      $('quoteLine').innerHTML = '「' + quote.textZh + '」'
+        + '<span class="not-italic block text-xs mt-1 opacity-70">— ' + quote.source + ' · 今日金句</span>';
+      $('extLinks').innerHTML = [
+        ['Weather.com', w.links.weatherComZh || w.links.weatherCom],
+        ['Weather.com (EN)', w.links.weatherCom],
+        ['wttr.in', w.links.wttr],
+        ['TimeandDate', w.links.timeAndDate],
+        ['Open-Meteo', w.links.openMeteo],
+      ].map(([name, href]) =>
+        '<a class="underline decoration-[color:var(--gold)] text-[color:var(--gold-bright)]" target="_blank" rel="noopener" href="' + href + '">' + name + '</a>'
+      ).join('');
+    }
+
+    function requestLocation() {
+      if (!navigator.geolocation) {
+        loadWeatherQuote();
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          userGeo = {
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            label: pos.coords.latitude.toFixed(3) + ',' + pos.coords.longitude.toFixed(3),
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          };
+          loadWeatherQuote();
+        },
+        () => loadWeatherQuote(),
+        { enableHighAccuracy: false, timeout: 8000 }
+      );
+    }
+    $('locateBtn').onclick = requestLocation;
 
     function profilePayload() {
       return {
@@ -489,10 +618,12 @@ function dashboardHtml(): string {
         + '（' + r.tongshu.huangHeiDao + '）</p>'
         + '<p class="mt-1 opacity-90">日' + r.astrology.sunSign + '／月' + r.astrology.moonSign
         + (r.astrology.mercuryRetrograde ? ' · 水逆' : '') + '</p>'
-        + '<p class="mt-1">吉時：' + hours + '</p>'
-        + '<p class="mt-1 opacity-80">宜：' + (r.tongshu.yi || []).slice(0, 8).join('、') + '</p>'
-        + (r.flags.length ? '<p class="mt-1 text-[#f0d78c]">旗標：' + r.flags.join('、') + '</p>' : '')
-        + (r.warnings.length ? '<p class="mt-1 text-[#ffb4a8]">' + r.warnings.join('；') + '</p>' : '');
+          + '<p class="mt-1">吉時：' + hours + '</p>'
+          + '<p class="mt-1 opacity-80">宜：' + (r.tongshu.yi || []).slice(0, 8).join('、') + '</p>'
+          + (r.tongshu.wuxing ? '<p class="mt-1 opacity-80">五行：' + r.tongshu.wuxing.label + '</p>' : '')
+          + (r.tongshu.xiuNote ? '<p class="mt-1 text-xs opacity-55">' + r.tongshu.xiuNote + '</p>' : '')
+          + (r.flags.length ? '<p class="mt-1 text-[#f0d78c]">旗標：' + r.flags.join('、') + '</p>' : '')
+          + (r.warnings.length ? '<p class="mt-1 text-[#ffb4a8]">' + r.warnings.join('；') + '</p>' : '');
     }
 
     function paintCalendarSelection() {
@@ -589,6 +720,7 @@ function dashboardHtml(): string {
           + r.tongshu.shiErShen + '（' + r.tongshu.huangHeiDao + '） · 日' + r.astrology.sunSign
           + '／月' + r.astrology.moonSign + (r.astrology.mercuryRetrograde ? ' · 水逆' : '') + '</p>'
           + '<p class="mt-1 text-sm opacity-80">吉時：' + hours + '</p>'
+          + (r.tongshu.wuxing ? '<p class="mt-1 text-sm opacity-75">五行：' + r.tongshu.wuxing.label + '</p>' : '')
           + (r.flags.length ? '<p class="mt-1 text-sm text-[#f0d78c]">旗標：' + r.flags.join('、') + '</p>' : '')
           + '</article>';
       }).join('');
@@ -651,11 +783,10 @@ function dashboardHtml(): string {
       $('status').textContent = data.error ? data.error : '已匯出 ' + data.count + ' 筆 → ' + data.path;
     };
 
-    // Init visibility for mode classes outside #appShell
     document.querySelectorAll('.cal-only').forEach((el) => { el.style.display = 'none'; });
-    $('westernSign').value = 'Taurus';
-    $('chineseZodiac').value = '猴';
-    refreshProfileHint().then(scan);
+    // 出生日期預設今天；星座／生肖自動推算
+    autofill().then(refreshProfileHint).then(scan);
+    requestLocation();
   </script>
 </body>
 </html>`;

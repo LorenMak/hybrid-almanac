@@ -79,11 +79,27 @@ export interface TongshuDayReport {
   yi: string[];
   ji: string[];
   jiShen: string[];
+  /** 正統評分用凶煞（已過濾雜煞／俗例偏煞）. */
   xiongSha: string[];
+  /** 被過濾之雜煞（僅備查，不評分）— 廣經堂取向. */
+  folkShaFiltered: string[];
+  /** 二十八宿（紀曆參考，吉凶毋需重視）. */
+  xiu: string | null;
+  xiuLuck: string | null;
+  xiuNote: string | null;
+  /** 日干月令生旺休囚. */
+  wuxing: {
+    dayStemElement: string | null;
+    seasonElement: string | null;
+    wangLevel: string;
+    label: string;
+  } | null;
   jieQi: string | null;
   /** Daytime 十二時辰 subset: 辰巳午未申. */
   daytimeHours: ShiChenHour[];
   flags: string[];
+  /** 編輯說明引用. */
+  orthodoxNote: string;
 }
 
 export interface AstrologyDayReport {

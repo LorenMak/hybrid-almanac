@@ -10,7 +10,15 @@
 import { Solar } from 'lunar-typescript';
 import type { ShiChenHour, TongshuDayReport } from '../types/almanac.js';
 import { toTraditional, toTraditionalList } from '../utils/traditionalZh.js';
+import {
+  analyzeDayWuxing,
+  filterOrthodoxXiongSha,
+  mansionReferenceNote,
+} from '../utils/orthodoxWuxing.js';
 import type { UserProfile } from '../../config/userProfile.js';
+
+const ORTHODOX_NOTE =
+  '宜忌／神煞依正統陰陽五行（生剋制化、生旺休囚）；二十八宿僅紀曆參考；雜煞／俗例偏煞已過濾（廣經堂通勝取向）。';
 
 /** Daytime focus branches: 辰巳午未申 (~07:00–16:59 HKT). */
 export const DAYTIME_FOCUS_BRANCHES = ['辰', '巳', '午', '未', '申'] as const;
@@ -126,6 +134,13 @@ export function getTongshuDay(
   const jieQiName = lunar.getJieQi() || null;
   const lunarSummary = `${lunar.getYearInChinese()}年${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`;
 
+  const rawSha = toTraditionalList(lunar.getDayXiongSha());
+  const { core, folkFiltered } = filterOrthodoxXiongSha(rawSha);
+  const dayGanZhi = lunar.getDayInGanZhi();
+  const wuxing = analyzeDayWuxing(dayGanZhi, monthBranch);
+  const xiu = toTraditional(lunar.getXiu());
+  const xiuLuck = toTraditional(lunar.getXiuLuck());
+
   return {
     date: dateYmd,
     solarYmd: solar.toYmd(),
@@ -136,7 +151,7 @@ export function getTongshuDay(
       day: baZi[2] ?? '',
       hour: baZi[3] ?? '',
     },
-    dayGanZhi: lunar.getDayInGanZhi(),
+    dayGanZhi,
     dayBranch,
     jianChu: toTraditional(lunar.getZhiXing()),
     shiErShen: toTraditional(lunar.getDayTianShen()),
@@ -145,10 +160,21 @@ export function getTongshuDay(
     yi: toTraditionalList(lunar.getDayYi()),
     ji: toTraditionalList(lunar.getDayJi()),
     jiShen: toTraditionalList(lunar.getDayJiShen()),
-    xiongSha: toTraditionalList(lunar.getDayXiongSha()),
+    xiongSha: core,
+    folkShaFiltered: folkFiltered,
+    xiu,
+    xiuLuck,
+    xiuNote: mansionReferenceNote(xiu, xiuLuck),
+    wuxing: {
+      dayStemElement: wuxing.dayStemElement,
+      seasonElement: wuxing.seasonElement,
+      wangLevel: wuxing.wangLevel,
+      label: wuxing.label,
+    },
     jieQi: jieQiName ? toTraditional(jieQiName) : null,
     daytimeHours: uniqueHours,
     flags,
+    orthodoxNote: ORTHODOX_NOTE,
   };
 }
 

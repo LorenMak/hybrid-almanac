@@ -22,6 +22,7 @@ import {
   isAdverseJianChu,
   isFavorableJianChu,
 } from './tongshuEngine.js';
+import { analyzeDayWuxing } from '../utils/orthodoxWuxing.js';
 
 function clamp(n: number, lo = 0, hi = 100): number {
   return Math.max(lo, Math.min(hi, Math.round(n)));
@@ -222,6 +223,18 @@ export function scoreDay(
       delta: -30,
     });
     tongshuDelta -= 30;
+  }
+
+  // 廣經堂取向：正統五行生旺休囚（二十八宿／雜煞不計分）
+  const monthBranch = tongshu.fourPillars.month.slice(1);
+  const wuxing = analyzeDayWuxing(tongshu.dayGanZhi, monthBranch || '');
+  if (wuxing.scoreDelta !== 0) {
+    breakdown.push({
+      source: 'tongshu',
+      label: `五行月令 · ${wuxing.label}`,
+      delta: wuxing.scoreDelta,
+    });
+    tongshuDelta += wuxing.scoreDelta;
   }
 
   if (isEarthMoonSign(astrology.moonSign)) {
