@@ -492,8 +492,9 @@ function dashboardHtml(): string {
       </section>
     </div>
 
-    <footer class="text-center text-xs text-[color:var(--gold)]/50 tracking-widest pb-6">
-      通書 × 西洋占星 · 列表／日曆 · 紅金擇日
+    <footer class="text-center text-xs text-[color:var(--gold)]/50 tracking-widest pb-6 leading-relaxed">
+      通書 × 西洋占星 · 列表／日曆 · 紅金擇日<br/>
+      香港中文大學 · 新亞書院 · 工程學生作品 · 語學／天文／中國傳統文化
     </footer>
   </main>
 

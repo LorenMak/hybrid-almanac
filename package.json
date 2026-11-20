@@ -1,7 +1,7 @@
 {
   "name": "hybrid-almanac",
   "version": "1.0.0",
-  "description": "中西雙曆法個人運程與擇日系統 — Chinese Tongshu & Western Astrology Hybrid Engine",
+  "description": "中西雙曆法個人運程與擇日系統 — by a CUHK New Asia College engineering student interested in linguistics, astronomy, and Chinese traditional culture",
   "type": "module",
   "main": "dist/src/index.js",
   "scripts": {
@@ -16,10 +16,22 @@
     "astrology",
     "almanac",
     "擇日",
-    "通書"
+    "通書",
+    "CUHK",
+    "New Asia College",
+    "新亞書院"
   ],
-  "author": "Loren Mak",
+  "author": "Loren Mak <CUHK New Asia College>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LorenMak/hybrid-almanac.git"
+  },
+  "homepage": "https://github.com/LorenMak/hybrid-almanac#readme",
+  "bugs": {
+    "url": "https://github.com/LorenMak/hybrid-almanac/issues"
+  },
+
   "dependencies": {
     "astronomy-engine": "^2.1.19",
     "express": "^5.3.0",
