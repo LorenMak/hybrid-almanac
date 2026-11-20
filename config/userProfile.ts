@@ -37,10 +37,43 @@ export const DEFAULT_USER_PROFILE: UserProfile = {
 };
 
 /** Intent filters for personalized auspicious-date scoring. */
-export type Intent = 'EXAM' | 'DRIVING' | 'INTERVIEW';
+export type Intent =
+  | 'EXAM'
+  | 'DRIVING'
+  | 'INTERVIEW'
+  | 'WEDDING'
+  | 'MOVE'
+  | 'SIGNING'
+  | 'OPENING'
+  | 'MEDICAL'
+  | 'STUDY'
+  | 'TRAVEL'
+  | 'INVESTMENT'
+  | 'GENERAL';
 
 export const INTENT_LABELS: Record<Intent, string> = {
   EXAM: '考試',
   DRIVING: '出行／駕駛',
   INTERVIEW: '面試',
+  WEDDING: '嫁娶／婚禮',
+  MOVE: '搬家／入宅',
+  SIGNING: '簽約／立約',
+  OPENING: '開業／開市',
+  MEDICAL: '求醫／手術',
+  STUDY: '入學／進修',
+  TRAVEL: '旅行／遠行',
+  INVESTMENT: '投資／理財',
+  GENERAL: '諸事通用',
 };
+
+export const ALL_INTENTS = Object.keys(INTENT_LABELS) as Intent[];
+
+export function isIntent(raw: unknown): raw is Intent {
+  return typeof raw === 'string' && (ALL_INTENTS as string[]).includes(raw.toUpperCase());
+}
+
+export function parseIntent(raw: unknown, fallback: Intent = 'GENERAL'): Intent | null {
+  if (raw == null || raw === '') return fallback;
+  const key = String(raw).toUpperCase() as Intent;
+  return isIntent(key) ? key : null;
+}
